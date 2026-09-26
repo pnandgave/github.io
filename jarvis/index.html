@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>J.A.R.V.I.S.</title>
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#070B12">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* JARVIS look v1 (locked): cyan, core-centred, combined hologram core. Phone app. */
+:root{
+  --ground:#070B12; --panel:#0B131E; --grid:rgba(95,212,244,.04);
+  --line:rgba(95,212,244,.2); --line-soft:rgba(95,212,244,.1); --tint:rgba(95,212,244,.12);
+  --text:#EAF7FC; --text-2:#B7CFDA; --muted:#8BA3B2; --dim:#7A93A2; --off:#35505F;
+  --accent:#5FD4F4; --on-accent:#04121A; --alert:#F2B84B; --on-alert:#1A1206;
+  --display:'Oxanium',sans-serif; --body:'IBM Plex Sans',sans-serif; --mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--ground)}
+body{color:var(--text);font-family:var(--body)}
+button{font:inherit;cursor:pointer}
+h2,h3{margin:0}
+.viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+.frame{position:relative;width:1280px;height:800px;flex-shrink:0;transform-origin:center;display:flex;flex-direction:column;gap:16px;padding:18px 24px 20px;
+  background-color:var(--ground);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:40px 40px}
+.label{font:500 11px var(--mono);letter-spacing:.2em;color:var(--accent)}
+.cut{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%)}
+.cut2{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))}
+.tag{padding:2px 7px;font:500 10px var(--mono);letter-spacing:.1em;background:var(--tint);color:var(--accent);white-space:nowrap}
+.tag.P1{background:var(--alert);color:var(--on-alert)}
+.tag.DONE{background:var(--off);color:var(--text-2)}
+.status{display:flex;align-items:center;justify-content:center;gap:8px;font:500 12px var(--mono);letter-spacing:.2em;color:var(--accent)}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.status.err{color:var(--alert)} .status.err i{background:var(--alert);box-shadow:0 0 8px var(--alert)}
+.mic{width:44px;height:44px;flex-shrink:0;border:0;border-radius:50%;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center}
+.mic.live{box-shadow:0 0 0 6px rgba(95,212,244,.25),0 0 18px var(--accent)}
+
+.top{display:flex;align-items:center;gap:20px;height:52px;border-bottom:1px solid var(--line-soft);padding-bottom:10px}
+.brand{display:flex;align-items:center;gap:12px;width:280px}
+.brand b{font:700 20px var(--display);letter-spacing:.3em;color:var(--accent)}
+.brand span{font:10px var(--mono);letter-spacing:.16em;color:var(--muted)}
+.clock{flex-grow:1;display:flex;align-items:baseline;justify-content:center;gap:14px}
+.clock b{font:600 34px var(--display)}
+.clock span{font:11px var(--mono);letter-spacing:.2em;color:var(--muted)}
+.chips{width:420px;display:flex;justify-content:flex-end;align-items:center;gap:14px;font:10px var(--mono);letter-spacing:.12em;color:var(--text-2)}
+.chips span{display:flex;align-items:center;gap:6px}
+.chips i{width:6px;height:6px;border-radius:50%;background:var(--off)}
+.chips i.on{background:var(--accent)}
+.voice{height:30px;padding:0 10px;white-space:nowrap;border:1px solid var(--line);background:transparent;color:var(--text-2);font:10px var(--mono);letter-spacing:.12em}
+.voice[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+
+.mid{flex-grow:1;min-height:0;display:grid;grid-template-columns:320px minmax(0,1fr) 320px;gap:24px}
+.side{display:flex;flex-direction:column;gap:14px;min-height:0}
+.centre{display:flex;flex-direction:column;align-items:center;gap:8px;min-height:0}
+.core{border:0;padding:0;background:transparent;width:420px;height:420px;flex-shrink:0}
+.caption{max-width:600px;text-align:center;font-size:15px;line-height:1.45;color:var(--text-2);min-height:44px}
+.ask{display:flex;align-items:center;gap:10px;width:560px;height:54px;padding:0 6px 0 16px;background:var(--panel);margin-top:auto}
+.ask label{font:11px var(--mono);letter-spacing:.16em;color:var(--accent)}
+.ask input{flex-grow:1;min-width:0;height:44px;border:0;background:transparent;color:var(--text);font:15px var(--body);outline:none}
+.ask input::placeholder{color:var(--dim)}
+
+.next{display:flex;flex-direction:column;gap:6px;padding:14px 16px;background:var(--accent);color:var(--on-accent)}
+.next .k{font:500 11px var(--mono);letter-spacing:.18em}
+.next .t{font:700 19px/1.2 var(--display)}
+.next .m{font-size:13px;font-weight:500}
+.next .btns{display:flex;gap:10px;padding-top:4px}
+.next button{flex-grow:1;height:44px;font:500 12px var(--mono);letter-spacing:.14em;border:0;background:var(--on-accent);color:var(--accent)}
+.next button.alt{border:2px solid var(--on-accent);background:transparent;color:var(--on-accent)}
+.pri{display:flex;gap:12px;align-items:center;padding:8px 10px 8px 14px;background:var(--panel)}
+.pri .n{font:700 24px/1 var(--display);color:var(--accent);width:32px}
+.pri .t{font-size:14px;font-weight:600}
+.pri .m{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);margin-top:4px}
+.pri.done .n{color:var(--off)} .pri.done .t{color:var(--dim);text-decoration:line-through}
+.chk{width:44px;height:44px;flex-shrink:0;margin-left:auto;border:0;padding:0;background:transparent;display:flex;align-items:center;justify-content:center}
+.chk span{width:20px;height:20px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;color:var(--text)}
+.chk[aria-pressed="true"] span{border-color:var(--off);background:var(--off)}
+.empty{padding:14px;background:var(--panel);font-size:13px;color:var(--muted)}
+.list{display:flex;flex-direction:column;background:var(--panel);padding:2px 14px}
+.row{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft)}
+.row:last-child,.ws:last-child{border-bottom:0}
+.row .dot{width:8px;height:8px;margin-top:6px;flex-shrink:0}
+.row .a{font-size:13px;font-weight:600}
+.row .b{font-size:12px;color:var(--muted);margin-top:1px}
+.ws{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line-soft)}
+.ws b{font:600 12px var(--display);letter-spacing:.08em;white-space:nowrap}
+.ws span{font-size:12px;color:var(--muted);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.strip{display:flex;flex-direction:column;gap:6px;padding:10px 16px 8px;background:var(--panel);border:1px solid var(--line)}
+.strip-head{display:flex;justify-content:space-between;font:10px var(--mono);letter-spacing:.18em;color:var(--muted)}
+.track{position:relative;height:40px}
+.band{position:absolute;top:0;height:40px}
+.band.college{background:var(--tint);opacity:.5}
+.band.prot{top:5px;height:30px;padding:3px 6px;font-size:11px;font-weight:600;color:var(--alert);border-top:3px solid var(--alert);white-space:nowrap;overflow:hidden;
+  background:repeating-linear-gradient(135deg,rgba(242,184,75,.18) 0 6px,rgba(242,184,75,.07) 6px 12px)}
+.blk{position:absolute;top:5px;height:30px;padding:3px 6px;overflow:hidden;font-size:11px;font-weight:600;line-height:1.2;white-space:nowrap;border-top:3px solid}
+.blk.done{background:var(--off);border-color:var(--dim);color:var(--text-2);opacity:.7}
+.blk.task{background:var(--tint);border-color:var(--accent);color:var(--text)}
+.nowline{position:absolute;top:-4px;width:2px;height:48px;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.ticks{position:relative;height:12px;font:10px var(--mono);color:var(--dim)}
+.ticks span{position:absolute}
+/* ---------- phone layout (same design, stacked for a narrow screen) ---------- */
+@media (max-width: 760px){
+  html,body{height:auto;overflow:auto}
+  .viewport{position:static;display:block}
+  .frame{width:100%;height:auto;min-height:100vh;padding:14px 16px 96px;gap:14px;transform:none!important;background-size:32px 32px}
+  .top{height:auto;flex-wrap:wrap;gap:6px 10px;padding-bottom:12px}
+  .brand{width:auto;flex-grow:1;gap:10px} .brand b{font-size:16px} .brand span{display:none}
+  .chips{width:auto;gap:8px} .chips>span{display:none}
+  .clock{order:3;width:100%;justify-content:flex-start;gap:10px} .clock b{font-size:26px} .clock span{font-size:10px}
+  .mid{display:flex;flex-direction:column;gap:14px}
+  .centre{order:1;gap:6px} .mid>.side:first-of-type{order:2} .mid>.side:last-of-type{order:3}
+  .core{width:min(300px,78vw)!important;height:min(300px,78vw)!important}
+  .caption{min-height:0;font-size:14px}
+  .ask{position:fixed;left:0;right:0;bottom:0;z-index:4;width:auto;height:72px;margin:0;padding:0 12px 0 16px;clip-path:none;border-top:1px solid var(--line);background:#0B131E}
+  .ask .mic{width:52px;height:52px}
+  .next .t{font-size:18px}
+  .strip-head{flex-direction:column;gap:2px}
+  .vpanel{position:fixed;top:12px;left:12px;right:12px;width:auto}
+}
+.startbtn{margin-left:10px;height:36px;padding:0 14px;border:1px solid var(--accent);background:transparent;color:var(--accent);font:500 11px var(--mono);letter-spacing:.14em}
+.vpanel{position:absolute;top:70px;right:24px;z-index:5;width:340px;display:flex;flex-direction:column;gap:12px;padding:16px 18px;background:#0E1826;border:1px solid var(--line);box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.vpanel[hidden]{display:none}
+.vpanel label{display:flex;flex-direction:column;gap:6px;font:11px var(--mono);letter-spacing:.14em;color:var(--muted)}
+.vpanel select,.vpanel input[type=range]{height:40px;background:var(--panel);color:var(--text);border:1px solid var(--line);font:14px var(--body);padding:0 8px}
+.vpanel input[type=range]{padding:0;accent-color:var(--accent)}
+.vpanel .hint{margin:0;font-size:12px;line-height:1.45;color:var(--muted);word-break:break-all}
+.vpanel .hint.err{color:var(--alert)}
+.vpanel .btns{display:flex;gap:10px}
+.vpanel .btns button{flex:1;height:44px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);font:500 12px var(--mono);letter-spacing:.14em}
+.vpanel .btns button.alt{background:transparent;color:var(--accent)}
+
+.vpanel{max-height:calc(100vh - 24px);overflow:auto}
+.vpanel input[type=text],.vpanel input[type=password]{height:44px;background:var(--panel);color:var(--text);border:1px solid var(--line);font:14px var(--body);padding:0 10px}
+.vpanel .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.vpanel .hint a{color:var(--accent)}
+.chk:disabled{opacity:.4}
+</style>
+</head>
+<body>
+<div class="viewport">
+<div class="frame" id="frame">
+
+<div class="top">
+<div class="brand">
+<svg width="30" height="30" viewBox="0 0 56 56" fill="none" aria-hidden="true"><circle cx="28" cy="28" r="26" stroke="#5FD4F4" stroke-opacity=".35" stroke-width="1.5"/><circle cx="28" cy="28" r="20" stroke="#5FD4F4" stroke-width="2.5" stroke-dasharray="4 3"/><circle cx="28" cy="28" r="9" fill="#5FD4F4"/></svg>
+<div><b>J.A.R.V.I.S.</b><br><span>PERSONAL WORKFORCE · PHONE</span></div>
+</div>
+<div class="clock"><b id="clock">--:--</b><span id="date"></span></div>
+<div class="chips">
+<span><i id="dotGoogle"></i>GOOGLE</span>
+<span><i id="dotAI"></i>GEMINI</span>
+<button type="button" class="voice" id="voiceBtn" aria-pressed="true">VOICE ON</button>
+<button type="button" class="voice" id="settingsBtn" aria-expanded="false" aria-controls="vpanel">SETTINGS</button>
+</div>
+</div>
+
+<div class="vpanel cut2" id="vpanel" hidden>
+<h3 class="label">SETTINGS</h3>
+<label for="sClient">GOOGLE CLIENT ID<input id="sClient" type="text" autocomplete="off" spellcheck="false" placeholder="…apps.googleusercontent.com"></label>
+<label for="sKey">GEMINI API KEY<input id="sKey" type="password" autocomplete="off" spellcheck="false" placeholder="from aistudio.google.com"></label>
+<p class="hint">Both stay only on this phone. They are never in the app's code.</p>
+<label for="sName">YOUR NAME<input id="sName" type="text" autocomplete="off"></label>
+<div class="row2">
+<label for="sCollege">COLLEGE<input id="sCollege" type="text" inputmode="numeric" placeholder="09:00-17:00"></label>
+<label for="sFamily">FAMILY TIME<input id="sFamily" type="text" inputmode="numeric" placeholder="19:30-21:30"></label>
+</div>
+<label for="sVoice">VOICE<select id="sVoice"></select></label>
+<label for="sRate">SPEED <output id="sRateOut" for="sRate">1.00×</output><input type="range" id="sRate" min="0.8" max="1.3" step="0.05" value="1"></label>
+<p class="hint" id="sMsg" aria-live="polite"></p>
+<div class="btns"><button type="button" id="sSave">SAVE</button><button type="button" class="alt" id="sConnect">CONNECT GOOGLE</button></div>
+<div class="btns"><button type="button" class="alt" id="sClose">CLOSE</button></div>
+</div>
+
+<div class="mid">
+<aside class="side">
+<section class="next cut2" id="next" aria-live="polite"></section>
+<h3 class="label">TOP 3 PRIORITIES</h3>
+<div id="top3" style="display:flex;flex-direction:column;gap:8px"></div>
+</aside>
+
+<div class="centre">
+<canvas class="core" data-core data-size="420" data-n="900" id="core" role="img" aria-label="JARVIS core"></canvas>
+<div class="status" id="status"><i></i><span id="statusText">STANDING BY</span></div>
+<div class="caption" id="caption" aria-live="polite"></div>
+<form class="ask cut2" id="askForm" autocomplete="off">
+<label for="ask">ASK</label>
+<input id="ask" type="text" placeholder="Add a task, ask about your day, or ask a question…" enterkeyhint="send">
+<button type="button" class="mic" id="mic" aria-label="Talk to JARVIS"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v5"/></svg></button>
+</form>
+</div>
+
+<aside class="side">
+<h3 class="label">WORKFORCE</h3>
+<div class="list" id="workforce"></div>
+<h3 class="label">WORKSTREAMS</h3>
+<div class="list" id="streams"></div>
+</aside>
+</div>
+
+<section class="strip" aria-label="Today">
+<div class="strip-head"><span id="windowLabel">TODAY</span><span id="stripHead"></span></div>
+<div class="track" id="track"></div>
+<div class="ticks" id="ticks"></div>
+</section>
+
+</div>
+</div>
+
+<script src="core.js"></script>
+<script src="dates.js"></script>
+<script src="planner.js"></script>
+<script src="google.js"></script>
+<script src="gemini.js"></script>
+<script>
+const phoneLayout = window.matchMedia('(max-width: 760px)');
+function fit() { const f = document.getElementById('frame'); if (phoneLayout.matches) { f.style.transform = ''; return; } const s = Math.min(window.innerWidth / 1280, window.innerHeight / 800); f.style.transform = `scale(${s})`; }
+fit(); window.addEventListener('resize', fit);
+</script>
+<script src="app.js"></script>
+<script src="https://accounts.google.com/gsi/client" async onload="gisLoaded()"></script>
+</body>
+</html>
