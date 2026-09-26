@@ -1,7 +1,8 @@
 /* Google Calendar + Tasks straight from the phone (no server). Sign-in uses Google's own sign-in window;
    the access token lasts about an hour and is kept only on this phone. */
 (function (root) {
-  const SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/tasks';
+  const SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/drive.readonly';
+  const SCOPE_VERSION = 2;                           // bump when SCOPES change, so the phone asks once for the new permission
   const KEY = 'jarvis.token';
   let client = null, token = null, pending = null;
 
@@ -36,7 +37,9 @@
     const r = await fetch(url, {...opt, headers: {Authorization: 'Bearer ' + token.v, 'Content-Type': 'application/json', ...(opt.headers || {})}});
     if (r.status === 401) { token = null; localStorage.removeItem(KEY); throw new NeedAuth(); }
     if (r.status === 204) return null;
+    if (opt.text) { if (!r.ok) throw new Error(r.statusText); return r.text(); }
     const j = await r.json().catch(() => ({}));
+    if (r.status === 403 && /insufficient|scope/i.test(JSON.stringify(j))) { token = null; localStorage.removeItem(KEY); throw new NeedAuth(); }
     if (!r.ok) throw new Error((j.error && j.error.message) || r.statusText);
     return j;
   }
@@ -48,11 +51,33 @@
     } while (tok);
     return out;
   }
-  const CAL = 'https://www.googleapis.com/calendar/v3', TASKS = 'https://tasks.googleapis.com/tasks/v1';
+  const CAL = 'https://www.googleapis.com/calendar/v3', TASKS = 'https://tasks.googleapis.com/tasks/v1', DRIVE = 'https://www.googleapis.com/drive/v3';
   const enc = encodeURIComponent;
 
   const g = {
-    NeedAuth, init, signIn, signOut, valid,
+    NeedAuth, init, signIn, signOut, valid, SCOPE_VERSION,
+    /* Drive (read-only): the Knowledge folder */
+    async folderId(name, parentName) {
+      const q = `name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      const j = await api(`${DRIVE}/files?q=${enc(q)}&fields=files(id,name,parents)&pageSize=20`);
+      const fs = j.files || [];
+      if (fs.length <= 1 || !parentName) return fs[0] ? fs[0].id : null;
+      for (const f of fs) {
+        for (const p of f.parents || []) {
+          const par = await api(`${DRIVE}/files/${enc(p)}?fields=name`).catch(() => ({}));
+          if ((par.name || '').toLowerCase() === parentName.toLowerCase()) return f.id;
+        }
+      }
+      return fs[0].id;
+    },
+    async folderFiles(id) {
+      const q = `'${id}' in parents and trashed=false`;
+      const j = await api(`${DRIVE}/files?q=${enc(q)}&fields=files(id,name,mimeType,modifiedTime)&pageSize=100`);
+      return j.files || [];
+    },
+    fileText: f => f.mimeType === 'application/vnd.google-apps.document'
+      ? api(`${DRIVE}/files/${enc(f.id)}/export?mimeType=text/plain`, {text: true})
+      : api(`${DRIVE}/files/${enc(f.id)}?alt=media`, {text: true}),
     async calendarId(name) {
       const cals = await pages(`${CAL}/users/me/calendarList?maxResults=250`);
       const c = cals.find(c => (c.summary || '').trim().toLowerCase() === name.trim().toLowerCase());

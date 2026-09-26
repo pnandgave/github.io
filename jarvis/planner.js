@@ -61,7 +61,7 @@
       blocks.push({label: title, left: pos(sh), width: Math.max(0.004, pos(eh) - pos(sh)), kind: e <= now ? 'done' : 'task'});
     }
     const band = (t, label, kind) => ({label, left: pos(hh(t[0])), width: pos(hh(t[1])) - pos(hh(t[0])), kind});
-    const bands = [band(rules.college, 'College', 'college'), band(rules.family_time, 'Family time', 'prot')];
+    const bands = [band(rules.college, 'College', 'college'), band(rules.reserved_time, 'Reserved time', 'prot')];
     const ticks = [];
     for (let h = Math.floor(w0); h <= Math.floor(w1); h += 3) ticks.push({label: `${pad(h)}:00`, left: pos(h)});
 
@@ -102,12 +102,12 @@
     brief.push(upcoming.length ? `${upcoming.length} more calendar item${upcoming.length !== 1 ? 's' : ''} today; next is ${upcoming[0].title} at ${hm(upcoming[0].s)}.` : 'No more calendar items today.');
     if (openSorted.length) brief.push(`Top priority: ${openSorted[0].title}, ${dueWords(openSorted[0].due, today)}.`);
     if (allday.length) brief.push('All day: ' + allday.slice(0, 3).join(', ') + '.');
-    if (nowH < hh(rules.family_time[0])) brief.push(`Family time from ${fmt(rules.family_time[0])} is protected.`);
+    if (nowH < hh(rules.reserved_time[0])) brief.push(`Reserved time from ${fmt(rules.reserved_time[0])} is protected.`);
 
     return {
       clock: hm(now), date: `${WEEKL[now.getDay()]} · ${pad(now.getDate())} ${MON[now.getMonth()].toUpperCase()} ${now.getFullYear()}`,
       greeting: `${greeting}, ${name}.`, window: `${fmt(rules.day_window[0])}–${fmt(rules.day_window[1])}`,
-      strip_head: `COLLEGE ${fmt(rules.college[0])}–${fmt(rules.college[1])} · FAMILY ${fmt(rules.family_time[0])}–${fmt(rules.family_time[1])}`,
+      strip_head: `COLLEGE ${fmt(rules.college[0])}–${fmt(rules.college[1])} · RESERVED ${fmt(rules.reserved_time[0])}–${fmt(rules.reserved_time[1])}`,
       day_frac: Math.round(pos(nowH) * 1000) / 1000, now_left: pos(nowH), bands, blocks, ticks, allday, next, top3,
       tasks_arc: tasksArc, streams, workforce: status, brief: brief.join(' '),
     };

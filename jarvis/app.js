@@ -15,12 +15,13 @@ const LS = {
   get(k, d) { try { const v = localStorage.getItem('jarvis.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('jarvis.' + k, JSON.stringify(v)); } catch (e) {} },
 };
-const DEF = {clientId: '', geminiKey: '', model: '', name: 'Pankaj', college: '09:00-17:00', family: '19:30-21:30', window: '06:00-22:00',
+const DEF = {clientId: '', geminiKey: '', model: '', name: 'Pankaj', college: '09:00-17:00', reserved: '19:30-21:30', window: '06:00-22:00',
   workstreams: ['PhD', 'College', 'Health', 'Brand & career', 'Learning', 'Freelance', 'Books'], inbox: 'Inbox', calendar: 'JARVIS',
   tz: 'Asia/Kolkata', voiceName: '', rate: 1.0, everSignedIn: false};
 let cfg = {...DEF, ...LS.get('settings', {})};
+if (cfg.family) { cfg.reserved = cfg.family; delete cfg.family; LS.set('settings', cfg); }   // v1.3 settings
 const spanOf = s => String(s).split('-').map(x => x.trim().split(':').map(Number));
-const rules = () => ({name: cfg.name, college: spanOf(cfg.college), family_time: spanOf(cfg.family), day_window: spanOf(cfg.window), workstreams: cfg.workstreams, inbox: cfg.inbox});
+const rules = () => ({name: cfg.name, college: spanOf(cfg.college), reserved_time: spanOf(cfg.reserved), day_window: spanOf(cfg.window), workstreams: cfg.workstreams, inbox: cfg.inbox});
 let cache = LS.get('cache', {}), queue = LS.get('queue', []);
 const saveCache = () => LS.set('cache', cache), saveQueue = () => LS.set('queue', queue);
 
@@ -57,10 +58,11 @@ setVoiceBtn();
 let gisReady = false;
 window.gisLoaded = () => { gisReady = true; try { if (cfg.clientId) JGoogle.init(cfg.clientId); } catch (e) {} };
 function ensureAuth() {                           // call only inside a tap: opens Google's sign-in window if needed
-  if (JGoogle.valid() || !cfg.clientId) return Promise.resolve(JGoogle.valid());
+  if ((JGoogle.valid() && cfg.scopeVersion === JGoogle.SCOPE_VERSION) || !cfg.clientId) return Promise.resolve(JGoogle.valid());
   if (!gisReady) return Promise.resolve(false);
   try { JGoogle.init(cfg.clientId); } catch (e) { return Promise.resolve(false); }
-  return JGoogle.signIn(!cfg.everSignedIn).then(() => { cfg.everSignedIn = true; LS.set('settings', cfg); return true; }, () => false);
+  const consent = !cfg.everSignedIn || cfg.scopeVersion !== JGoogle.SCOPE_VERSION;
+  return JGoogle.signIn(consent).then(() => { cfg.everSignedIn = true; cfg.scopeVersion = JGoogle.SCOPE_VERSION; LS.set('settings', cfg); return true; }, () => false);
 }
 
 /* ---------- sync with Google ---------- */
@@ -95,6 +97,7 @@ async function sync() {
       o.forEach(t => open.push({l: n, id, t})); d.forEach(t => done.push({l: n, id, t}));
     }));
     cache = {at: Date.now(), day: ymd(now), calId, lists, events: evs, open, done}; saveCache();
+    try { await JKnowledge.refresh(false); } catch (e) { if (e.needAuth) throw e; }
     lastError = '';
   })().finally(() => { syncing = null; });
   return syncing;
@@ -119,6 +122,8 @@ function view() {
     {name: 'Google sync', status: !cfg.clientId ? 'Offline' : authed ? 'Running' : 'Needs you',
      detail: !cfg.clientId ? 'add your client ID in SETTINGS' : when ? `last sync ${pad(when.getHours())}:${pad(when.getMinutes())}${authed ? '' : ' · tap CONNECT'}` : 'tap CONNECT GOOGLE'},
     {name: 'Gemini', status: cfg.geminiKey ? 'Running' : 'Offline', detail: cfg.geminiKey ? (cfg.model || 'ready') : 'add your key in SETTINGS'},
+    (() => { const k = JKnowledge.status(); return {name: 'Knowledge', status: k.count ? 'Running' : 'Offline',
+      detail: k.count ? `${k.count} files from Drive` : k.missing ? 'no JARVIS › Knowledge folder in Drive' : 'syncs after Google sign-in'}; })(),
     ...(queue.length ? [{name: 'Waiting to sync', status: 'Scheduled', detail: `${queue.length} change${queue.length > 1 ? 's' : ''} saved on this phone`}] : []),
     {name: 'Morning brief', status: t >= 530 ? 'Done' : 'Scheduled', detail: '08:50 via Spark'},
     {name: 'Evening review', status: t >= 1065 ? 'Done' : 'Scheduled', detail: '17:45 via Spark'},
@@ -191,22 +196,24 @@ async function command(text) {
     const tm = JDates.resolveTime(cmd.time) || JDates.resolveTime(text);
     const mins = Math.max(5, parseInt(cmd.duration_min, 10) || 30), prio = cmd.priority || 'P2', ws = cmd.workstream || cfg.inbox;
     const title = (cmd.title || text).trim();
-    let event = null, famNote = '';
+    let event = null, resNote = '';
     if (tm) {
       if (!due) { due = today; if (tm.h * 60 + tm.m <= now.getHours() * 60 + now.getMinutes()) due = new Date(today.getTime() + 86400000); }
       const s = new Date(due.getFullYear(), due.getMonth(), due.getDate(), tm.h, tm.m), e = new Date(s.getTime() + mins * 60000);
       event = {start: s.toISOString(), end: e.toISOString()};
-      const [f0, f1] = rules().family_time, sm = tm.h * 60 + tm.m;
-      if (sm < f1[0] * 60 + f1[1] && sm + mins > f0[0] * 60 + f0[1]) famNote = ' Note: that is inside your family time.';
+      const [f0, f1] = rules().reserved_time, sm = tm.h * 60 + tm.m;
+      if (sm < f1[0] * 60 + f1[1] && sm + mins > f0[0] * 60 + f0[1]) resNote = ' Note: that is inside your reserved time.';
     }
     addLocal({op: 'add', list: ws, title, notes: `${prio} · ${mins} min · added by JARVIS phone`, due: due ? ymd(due) : null, event});
     await pushChanges();
     const whenTxt = due ? `Due ${fmtDay(due)}` : 'No date';
-    return say(`Added to ${ws}: ${title}. ${whenTxt}${event ? `, with a reminder at ${pad(tm.h)}:${pad(tm.m)} in your JARVIS calendar` : ''}, ${prio}.${famNote}` +
+    return say(`Added to ${ws}: ${title}. ${whenTxt}${event ? `, with a reminder at ${pad(tm.h)}:${pad(tm.m)} in your JARVIS calendar` : ''}, ${prio}.${resNote}` +
                (queue.length ? ' It will reach Google when you are online and signed in.' : ''));
   }
   if (cmd.intent === 'brief') { await pushChanges(); return say(data.brief); }
-  try { say(await JGemini.answer(cfg.geminiKey, await modelName(), text, rules())); } catch (e) { say('Sorry, I could not answer: ' + e.message); }
+  if (cmd.intent === 'write') { openWriter(cmd.kind || 'other', text); return runWriter(); }
+  try { say(await JGemini.answer(cfg.geminiKey, await modelName(), text, rules(), JKnowledge.context('question', text).text)); }
+  catch (e) { say('Sorry, I could not answer: ' + e.message); }
 }
 
 $('askForm').onsubmit = e => { e.preventDefault(); const t = $('ask').value; $('ask').value = ''; ensureAuth(); command(t); };
@@ -244,6 +251,36 @@ $('mic').onclick = () => {
   rec.start();
 };
 
+/* ---------- write panel ---------- */
+function openWriter(kind, text) {
+  if (kind) $('wKind').value = kind;
+  if (text != null) $('wText').value = text;
+  $('wpanel').hidden = false; $('writeBtn').setAttribute('aria-expanded', 'true');
+}
+function closeWriter() { $('wpanel').hidden = true; $('writeBtn').setAttribute('aria-expanded', 'false'); $('writeBtn').focus(); }
+async function runWriter() {
+  const kind = $('wKind').value, req = $('wText').value.trim();
+  if (!req) { $('wMsg').textContent = 'Type what to write, or paste a draft.'; return; }
+  if (!cfg.geminiKey) { $('wMsg').textContent = 'Add your Gemini key in SETTINGS first.'; return; }
+  phase('thinking'); $('wOut').textContent = ''; $('wMsg').textContent = 'Writing…';
+  try {
+    if (JGoogle.valid()) { try { await JKnowledge.refresh(false); } catch (e) {} }
+    const ctx = JKnowledge.context(kind, req);
+    const out = await JGemini.write(cfg.geminiKey, await modelName(), kind, req, rules(), ctx.text);
+    $('wOut').textContent = out;
+    const words = out.split('---')[0].trim().split(/\s+/).length;
+    $('wMsg').textContent = `${words} words · used ${ctx.names.length ? ctx.names.join(', ') : 'no knowledge files (sign in to Google to load them)'}`;
+    say(`Draft ready: about ${words} words, on screen. Check the list at the end before you use it.`);
+  } catch (e) { phase('idle'); $('wMsg').textContent = 'Writing failed: ' + e.message; }
+}
+$('writeBtn').onclick = () => ($('wpanel').hidden ? (openWriter(), $('wText').focus()) : closeWriter());
+$('wClose').onclick = closeWriter;
+$('wGo').onclick = () => { ensureAuth(); runWriter(); };
+$('wCopy').onclick = async () => {
+  const t = $('wOut').textContent.split('\n---')[0].trim();
+  try { await navigator.clipboard.writeText(t); $('wMsg').textContent = 'Copied (without the Check list).'; } catch (e) { $('wMsg').textContent = 'Copy failed: select the text and copy it.'; }
+};
+
 /* ---------- settings panel ---------- */
 function fillVoiceSelect() {
   const sel = $('sVoice'); if (!sel) return;
@@ -252,7 +289,7 @@ function fillVoiceSelect() {
 }
 function openSettings() {
   $('sClient').value = cfg.clientId; $('sKey').value = cfg.geminiKey; $('sName').value = cfg.name;
-  $('sCollege').value = cfg.college; $('sFamily').value = cfg.family; $('sRate').value = cfg.rate; $('sRateOut').textContent = Number(cfg.rate).toFixed(2) + '×';
+  $('sCollege').value = cfg.college; $('sReserved').value = cfg.reserved; $('sRate').value = cfg.rate; $('sRateOut').textContent = Number(cfg.rate).toFixed(2) + '×';
   fillVoiceSelect(); $('sMsg').textContent = cfg.model ? `Gemini model: ${cfg.model}` : '';
   $('vpanel').hidden = false; $('settingsBtn').setAttribute('aria-expanded', 'true'); $('sClient').focus();
 }
@@ -262,7 +299,7 @@ $('sClose').onclick = closeSettings;
 $('sRate').oninput = () => { $('sRateOut').textContent = Number($('sRate').value).toFixed(2) + '×'; };
 $('sSave').onclick = async () => {
   const span = /^\s*\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}\s*$/;
-  if (!span.test($('sCollege').value) || !span.test($('sFamily').value)) { $('sMsg').textContent = 'Use times like 19:30-21:30.'; return; }
+  if (!span.test($('sCollege').value) || !span.test($('sReserved').value)) { $('sMsg').textContent = 'Use times like 19:30-21:30.'; return; }
   const id = $('sClient').value.replace(/\s+/g, '');
   if (id && !/^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(id)) {
     $('sMsg').textContent = 'That client ID does not look right. It should be numbers, a dash, letters and numbers, then .apps.googleusercontent.com. Copy it again from Google Cloud.';
@@ -271,7 +308,7 @@ $('sSave').onclick = async () => {
   $('sClient').value = id;
   const keyChanged = $('sKey').value.trim() !== cfg.geminiKey, idChanged = id !== cfg.clientId;
   Object.assign(cfg, {clientId: $('sClient').value.trim(), geminiKey: $('sKey').value.trim(), name: $('sName').value.trim() || 'Pankaj',
-    college: $('sCollege').value.trim(), family: $('sFamily').value.trim(), voiceName: $('sVoice').value, rate: Number($('sRate').value)});
+    college: $('sCollege').value.trim(), reserved: $('sReserved').value.trim(), voiceName: $('sVoice').value, rate: Number($('sRate').value)});
   if (keyChanged) cfg.model = '';
   if (idChanged) { JGoogle.signOut(); cfg.everSignedIn = false; }
   LS.set('settings', cfg);

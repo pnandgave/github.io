@@ -138,6 +138,11 @@ h2,h3{margin:0}
 .vpanel .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .vpanel .hint a{color:var(--accent)}
 .chk:disabled{opacity:.4}
+.wpanel{width:600px}
+.vpanel textarea{min-height:120px;resize:vertical;background:var(--panel);color:var(--text);border:1px solid var(--line);font:14px/1.45 var(--body);padding:10px}
+.wout{white-space:pre-wrap;max-height:42vh;overflow:auto;background:var(--panel);border:1px solid var(--line-soft);padding:12px 14px;font:14px/1.55 var(--body);color:var(--text)}
+.wout:empty{display:none}
+@media (max-width: 760px){.wpanel{width:auto}}
 </style>
 </head>
 <body>
@@ -154,6 +159,7 @@ h2,h3{margin:0}
 <span><i id="dotGoogle"></i>GOOGLE</span>
 <span><i id="dotAI"></i>GEMINI</span>
 <button type="button" class="voice" id="voiceBtn" aria-pressed="true">VOICE ON</button>
+<button type="button" class="voice" id="writeBtn" aria-expanded="false" aria-controls="wpanel">WRITE</button>
 <button type="button" class="voice" id="settingsBtn" aria-expanded="false" aria-controls="vpanel">SETTINGS</button>
 </div>
 </div>
@@ -166,13 +172,25 @@ h2,h3{margin:0}
 <label for="sName">YOUR NAME<input id="sName" type="text" autocomplete="off"></label>
 <div class="row2">
 <label for="sCollege">COLLEGE<input id="sCollege" type="text" inputmode="numeric" placeholder="09:00-17:00"></label>
-<label for="sFamily">FAMILY TIME<input id="sFamily" type="text" inputmode="numeric" placeholder="19:30-21:30"></label>
+<label for="sReserved">RESERVED TIME<input id="sReserved" type="text" inputmode="numeric" placeholder="19:30-21:30"></label>
 </div>
 <label for="sVoice">VOICE<select id="sVoice"></select></label>
 <label for="sRate">SPEED <output id="sRateOut" for="sRate">1.00×</output><input type="range" id="sRate" min="0.8" max="1.3" step="0.05" value="1"></label>
 <p class="hint" id="sMsg" aria-live="polite"></p>
 <div class="btns"><button type="button" id="sSave">SAVE</button><button type="button" class="alt" id="sConnect">CONNECT GOOGLE</button></div>
 <div class="btns"><button type="button" class="alt" id="sClose">CLOSE</button></div>
+</div>
+
+<div class="vpanel wpanel cut2" id="wpanel" hidden>
+<h3 class="label">WRITE WITH JARVIS</h3>
+<label for="wKind">WHAT<select id="wKind">
+<option value="paper">Paper / report section</option><option value="book">Book</option><option value="post">LinkedIn post</option>
+<option value="email">Email</option><option value="humanise">Make my draft sound like me</option><option value="other">Other</option></select></label>
+<label for="wText">REQUEST, NOTES OR DRAFT<textarea id="wText" placeholder="e.g. Draft the results paragraph for the graded PETG–Nylon tensile data. Or paste a draft to make it sound like you."></textarea></label>
+<div class="btns"><button type="button" id="wGo">WRITE</button><button type="button" class="alt" id="wClose">CLOSE</button></div>
+<p class="hint" id="wMsg" aria-live="polite"></p>
+<div class="wout" id="wOut" tabindex="0"></div>
+<div class="btns"><button type="button" class="alt" id="wCopy">COPY TEXT</button></div>
 </div>
 
 <div class="mid">
@@ -215,6 +233,7 @@ h2,h3{margin:0}
 <script src="planner.js"></script>
 <script src="google.js"></script>
 <script src="gemini.js"></script>
+<script src="knowledge.js"></script>
 <script>
 const phoneLayout = window.matchMedia('(max-width: 760px)');
 function fit() { const f = document.getElementById('frame'); if (phoneLayout.matches) { f.style.transform = ''; return; } const s = Math.min(window.innerWidth / 1280, window.innerHeight / 800); f.style.transform = `scale(${s})`; }
