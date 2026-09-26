@@ -1,5 +1,5 @@
 /* JARVIS phone: keeps the app itself on the phone so it opens instantly and offline. Google and Gemini calls are never cached. */
-const CACHE = 'jarvis-phone-v1';
+const CACHE = 'jarvis-phone-v1.2';
 const SHELL = ['./', './index.html', './app.js', './core.js', './dates.js', './planner.js', './google.js', './gemini.js',
                './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });

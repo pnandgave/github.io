@@ -263,7 +263,13 @@ $('sRate').oninput = () => { $('sRateOut').textContent = Number($('sRate').value
 $('sSave').onclick = async () => {
   const span = /^\s*\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}\s*$/;
   if (!span.test($('sCollege').value) || !span.test($('sFamily').value)) { $('sMsg').textContent = 'Use times like 19:30-21:30.'; return; }
-  const keyChanged = $('sKey').value.trim() !== cfg.geminiKey, idChanged = $('sClient').value.trim() !== cfg.clientId;
+  const id = $('sClient').value.replace(/\s+/g, '');
+  if (id && !/^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(id)) {
+    $('sMsg').textContent = 'That client ID does not look right. It should be numbers, a dash, letters and numbers, then .apps.googleusercontent.com. Copy it again from Google Cloud.';
+    return;
+  }
+  $('sClient').value = id;
+  const keyChanged = $('sKey').value.trim() !== cfg.geminiKey, idChanged = id !== cfg.clientId;
   Object.assign(cfg, {clientId: $('sClient').value.trim(), geminiKey: $('sKey').value.trim(), name: $('sName').value.trim() || 'Pankaj',
     college: $('sCollege').value.trim(), family: $('sFamily').value.trim(), voiceName: $('sVoice').value, rate: Number($('sRate').value)});
   if (keyChanged) cfg.model = '';
@@ -274,13 +280,20 @@ $('sSave').onclick = async () => {
   if (cfg.clientId && gisReady) { try { JGoogle.init(cfg.clientId); } catch (e) {} }
   render(); say('Settings saved.');
 };
-$('sConnect').onclick = async () => { const ok = await ensureAuth(); $('sMsg').textContent = ok ? 'Google connected.' : 'Google sign-in did not finish.'; if (ok) refresh(false); };
+$('sConnect').onclick = async () => { const ok = await ensureAuth(); $('sMsg').textContent = ok ? 'Google connected.' : 'Google sign-in did not finish. If Google said the OAuth client was not found, the client ID is wrong or brand new (wait 5 minutes).'; if (ok) refresh(false); };
 
 /* ---------- start ---------- */
 setInterval(() => { render(); if (JGoogle.valid()) refresh(false); }, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(false); });
 window.addEventListener('online', () => refresh(false));
-render(); refresh(false);
+render();
+const briefAsked = new URLSearchParams(location.search).get('brief');   // opened from a JARVIS brief notification
+refresh(false).then(() => {
+  if (!briefAsked) return;
+  history.replaceState(null, '', location.pathname);
+  $('caption').innerHTML = esc(data.brief) + ' <button type="button" class="startbtn" data-brief>PLAY</button>';
+  say(data.brief);                                            // may need the PLAY tap if the phone blocks sound on open
+});
 if (!cfg.clientId || !cfg.geminiKey) setTimeout(openSettings, 600);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 })();

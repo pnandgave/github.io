@@ -47,7 +47,7 @@
 
     const timed = [], allday = [];
     for (const ev of events) {
-      if (ev.status === 'cancelled') continue;
+      if (ev.status === 'cancelled' || (ev.description || '').includes('#jarvis-brief')) continue;   // brief notifications are not appointments
       const title = (ev.summary || '(no title)').trim();
       if (!ev.start || !ev.start.dateTime) { allday.push(title); continue; }
       timed.push({s: new Date(ev.start.dateTime), e: new Date(ev.end.dateTime), title});
